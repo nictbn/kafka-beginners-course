@@ -1,3 +1,5 @@
+import domain.Message;
+import mappers.MessageToProducerRecordMapper;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -21,19 +23,13 @@ public class ProducerDemoWithCallback {
 
     public static KafkaProducer<String, String> producer = null;
 
+    public static final MessageToProducerRecordMapper mapper = new MessageToProducerRecordMapper();
+
     public static void main(String[] args) {
         log.info("I am a Kafka Producer!");
 
         // Create Producer Properties
-        Properties properties = new Properties();
-        properties.setProperty(BOOTSTRAP_SERVERS, LOCALHOST_BOOSTRAP_SERVER);
-        properties.setProperty(KEY_SERIALIZER, StringSerializer.class.getName());
-        properties.setProperty(VALUE_SERIALIZER, StringSerializer.class.getName());
-
-        // KAFKA BATCH SIZE WAS MODIFIED TO DEMONSTRATE THAT MESSAGES ARE SENT USING THE STICKY PARTITIONER IN BATCHES
-        // RATHER THAN ROUND ROBIN
-        // YOU CAN OBSERVE THIS BEHAVIOUR ONLY IF YOUR TOPIC HAS MULTIPLE PARTITIONS
-        properties.setProperty(KAFKA_BATCH_SIZE, "400");
+        Properties properties = createProperties();
 
         // Create the Producer
         producer = new KafkaProducer<>(properties);
@@ -46,6 +42,19 @@ public class ProducerDemoWithCallback {
         producer.close();
     }
 
+    private static Properties createProperties() {
+        Properties properties = new Properties();
+        properties.setProperty(BOOTSTRAP_SERVERS, LOCALHOST_BOOSTRAP_SERVER);
+        properties.setProperty(KEY_SERIALIZER, StringSerializer.class.getName());
+        properties.setProperty(VALUE_SERIALIZER, StringSerializer.class.getName());
+
+        // KAFKA BATCH SIZE WAS MODIFIED TO DEMONSTRATE THAT MESSAGES ARE SENT USING THE STICKY PARTITIONER IN BATCHES
+        // RATHER THAN ROUND ROBIN
+        // YOU CAN OBSERVE THIS BEHAVIOUR ONLY IF YOUR TOPIC HAS MULTIPLE PARTITIONS
+        properties.setProperty(KAFKA_BATCH_SIZE, "400");
+        return properties;
+    }
+
     private static void sendBatches(int numberOfBatches, int batchSize) {
         for (int i = 0; i < numberOfBatches; i++) {
             sendBatch(i, batchSize);
@@ -55,8 +64,8 @@ public class ProducerDemoWithCallback {
 
     private static void sendBatch(int batchNumber, int batchSize) {
         for (int j = 0; j < batchSize; j++) {
-            ProducerRecord<String, String> producerRecord = new ProducerRecord<>(TOPIC, "hello world " + (batchNumber * batchSize + j));
-            sendSingleRecord(producerRecord);
+            Message message = createMessage(batchNumber, batchSize, j);
+            sendSingleRecord(message);
         }
     }
 
@@ -68,8 +77,17 @@ public class ProducerDemoWithCallback {
         }
     }
 
-    private static void sendSingleRecord(ProducerRecord<String, String> producerRecord) {
-        producer.send(producerRecord, (recordMetadata, e) -> {
+    private static Message createMessage(int batchNumber, int batchSize, int j) {
+        return new Message(TOPIC, null, "hello world " + (batchNumber * batchSize + j));
+    }
+
+    private static void sendSingleRecord(Message message) {
+        ProducerRecord<String, String> record = mapper.map(message);
+        send(record);
+    }
+
+    private static void send(ProducerRecord<String, String> record) {
+        producer.send(record, (recordMetadata, e) -> {
             if (e == null) {
                 log.info(getLogFormat(recordMetadata));
             } else {

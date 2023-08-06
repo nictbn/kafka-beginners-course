@@ -26,10 +26,7 @@ public class ProducerDemoWithKeys {
         log.info("I am a Kafka Producer!");
 
         // Create Producer Properties
-        Properties properties = new Properties();
-        properties.setProperty(BOOTSTRAP_SERVERS, LOCALHOST_BOOSTRAP_SERVER);
-        properties.setProperty(KEY_SERIALIZER, StringSerializer.class.getName());
-        properties.setProperty(VALUE_SERIALIZER, StringSerializer.class.getName());
+        Properties properties = createProperties();
 
         // Create the Producer
         producer = new KafkaProducer<>(properties);
@@ -40,6 +37,14 @@ public class ProducerDemoWithKeys {
         // Flush and close the producer
         producer.flush();
         producer.close();
+    }
+
+    private static Properties createProperties() {
+        Properties properties = new Properties();
+        properties.setProperty(BOOTSTRAP_SERVERS, LOCALHOST_BOOSTRAP_SERVER);
+        properties.setProperty(KEY_SERIALIZER, StringSerializer.class.getName());
+        properties.setProperty(VALUE_SERIALIZER, StringSerializer.class.getName());
+        return properties;
     }
 
     private static void sendBatches(int numberOfBatches, int batchSize) {
