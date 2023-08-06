@@ -49,6 +49,7 @@ public class ProducerDemoWithCallback {
     private static void sendBatches(int numberOfBatches, int batchSize) {
         for (int i = 0; i < numberOfBatches; i++) {
             sendBatch(i, batchSize);
+            sleep(500);
         }
     }
 
@@ -56,6 +57,14 @@ public class ProducerDemoWithCallback {
         for (int j = 0; j < batchSize; j++) {
             ProducerRecord<String, String> producerRecord = new ProducerRecord<>(TOPIC, "hello world " + (batchNumber * batchSize + j));
             sendSingleRecord(producerRecord);
+        }
+    }
+
+    private static void sleep(int milliseconds) {
+        try {
+            Thread.sleep(milliseconds);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
     }
 
