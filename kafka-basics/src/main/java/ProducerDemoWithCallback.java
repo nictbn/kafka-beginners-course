@@ -6,16 +6,13 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import util.ProducerPropertiesUtil;
 
 import java.util.Properties;
 
 public class ProducerDemoWithCallback {
 
     private static final Logger log = LoggerFactory.getLogger(ProducerDemoWithCallback.class);
-    public static final String BOOTSTRAP_SERVERS = "bootstrap.servers";
-    public static final String LOCALHOST_BOOSTRAP_SERVER = "127.0.0.1:9092";
-    public static final String KEY_SERIALIZER = "key.serializer";
-    public static final String VALUE_SERIALIZER = "value.serializer";
     public static final String TOPIC = "demo_java";
     public static final int PRODUCER_BATCH_SIZE = 30;
     public static final int NUMBER_OF_BATCHES = 30;
@@ -43,10 +40,7 @@ public class ProducerDemoWithCallback {
     }
 
     private static Properties createProperties() {
-        Properties properties = new Properties();
-        properties.setProperty(BOOTSTRAP_SERVERS, LOCALHOST_BOOSTRAP_SERVER);
-        properties.setProperty(KEY_SERIALIZER, StringSerializer.class.getName());
-        properties.setProperty(VALUE_SERIALIZER, StringSerializer.class.getName());
+        Properties properties = ProducerPropertiesUtil.getDefaultProperties();
 
         // KAFKA BATCH SIZE WAS MODIFIED TO DEMONSTRATE THAT MESSAGES ARE SENT USING THE STICKY PARTITIONER IN BATCHES
         // RATHER THAN ROUND ROBIN
