@@ -2,6 +2,7 @@ import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.background.BackgroundEventHandler;
 import com.launchdarkly.eventsource.background.BackgroundEventSource;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.net.URI;
@@ -18,6 +19,10 @@ public class WikimediaChangesProducer {
         properties.setProperty(BOOTSTRAP_SERVERS, LOCALHOST_BOOSTRAP_SERVER);
         properties.setProperty(KEY_SERIALIZER, StringSerializer.class.getName());
         properties.setProperty(VALUE_SERIALIZER, StringSerializer.class.getName());
+        // high throughput config
+        properties.setProperty(ProducerConfig.LINGER_MS_CONFIG, "20");
+        properties.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, Integer.toString(32 * 1024));
+        properties.setProperty(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
 
         KafkaProducer<String, String> producer = new KafkaProducer<>(properties);
         String topic = "wikimedia.recentchange";
