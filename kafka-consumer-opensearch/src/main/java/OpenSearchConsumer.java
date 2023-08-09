@@ -1,3 +1,4 @@
+import com.google.gson.JsonParser;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -92,12 +93,20 @@ public class OpenSearchConsumer {
 
     private static void trySendDataToOpenSearch(RestHighLevelClient openSearchClient, ConsumerRecord<String, String> record) throws IOException {
         try {
-            IndexRequest indexRequest = new IndexRequest(INDEX_NAME).source(record.value(), XContentType.JSON);
+            String id = extractId(record.value());
+            IndexRequest indexRequest = new IndexRequest(INDEX_NAME).source(record.value(), XContentType.JSON).id(id);
             IndexResponse response = openSearchClient.index(indexRequest, RequestOptions.DEFAULT);
             log.info(response.getId());
         } catch (Exception ignored) {
 
         }
+    }
+
+    private static String extractId(String value) {
+        return JsonParser.parseString(value)
+                .getAsJsonObject().get("meta")
+                .getAsJsonObject().get("id")
+                .getAsString();
     }
 
     public static RestHighLevelClient createOpenSearchClient() {
