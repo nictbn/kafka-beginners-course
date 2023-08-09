@@ -5,6 +5,7 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.DefaultConnectionKeepAliveStrategy;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -76,6 +77,8 @@ public class OpenSearchConsumer {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(3000));
                 logNumberOfRecords(records);
                 sendRecordsToOpenSearch(openSearchClient, records);
+                consumer.commitSync();
+                log.info("Offsets have been committed");
             }
         }
     }
@@ -85,13 +88,13 @@ public class OpenSearchConsumer {
         log.info("Received " + recordCount + " records");
     }
 
-    private static void sendRecordsToOpenSearch(RestHighLevelClient openSearchClient, ConsumerRecords<String, String> records) throws IOException {
+    private static void sendRecordsToOpenSearch(RestHighLevelClient openSearchClient, ConsumerRecords<String, String> records) {
         for (ConsumerRecord<String, String> record : records) {
             trySendDataToOpenSearch(openSearchClient, record);
         }
     }
 
-    private static void trySendDataToOpenSearch(RestHighLevelClient openSearchClient, ConsumerRecord<String, String> record) throws IOException {
+    private static void trySendDataToOpenSearch(RestHighLevelClient openSearchClient, ConsumerRecord<String, String> record) {
         try {
             String id = extractId(record.value());
             IndexRequest indexRequest = new IndexRequest(INDEX_NAME).source(record.value(), XContentType.JSON).id(id);
@@ -150,6 +153,7 @@ public class OpenSearchConsumer {
         properties.setProperty(VALUE_DESERIALIZER, StringDeserializer.class.getName());
         properties.setProperty(GROUP_ID, DEFAULT_GROUP_ID);
         properties.setProperty(AUTO_OFFSET_RESET, AUTO_OFFSET_RESET_STRATEGY);
+        properties.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
         return new KafkaConsumer<>(properties);
     }
 }
