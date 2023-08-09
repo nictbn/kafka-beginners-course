@@ -10,8 +10,9 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequest;
-import org.opensearch.action.index.IndexResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.RestHighLevelClient;
@@ -76,9 +77,12 @@ public class OpenSearchConsumer {
             while (true) {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(3000));
                 logNumberOfRecords(records);
-                sendRecordsToOpenSearch(openSearchClient, records);
-                consumer.commitSync();
-                log.info("Offsets have been committed");
+                BulkRequest bulkRequest = createBulkRequest(records);
+                if (bulkRequest.numberOfActions() > 0) {
+                    insertIntoOpenSearch(openSearchClient, bulkRequest);
+                    commitOffsets(consumer);
+                    waitForNewRecordsToQueue();
+                }
             }
         }
     }
@@ -88,21 +92,18 @@ public class OpenSearchConsumer {
         log.info("Received " + recordCount + " records");
     }
 
-    private static void sendRecordsToOpenSearch(RestHighLevelClient openSearchClient, ConsumerRecords<String, String> records) {
+    private static BulkRequest createBulkRequest(ConsumerRecords<String, String> records) {
+        BulkRequest bulkRequest = new BulkRequest();
         for (ConsumerRecord<String, String> record : records) {
-            trySendDataToOpenSearch(openSearchClient, record);
+            addRecordToBulkRequest(bulkRequest, record);
         }
+        return bulkRequest;
     }
 
-    private static void trySendDataToOpenSearch(RestHighLevelClient openSearchClient, ConsumerRecord<String, String> record) {
-        try {
-            String id = extractId(record.value());
-            IndexRequest indexRequest = new IndexRequest(INDEX_NAME).source(record.value(), XContentType.JSON).id(id);
-            IndexResponse response = openSearchClient.index(indexRequest, RequestOptions.DEFAULT);
-            log.info(response.getId());
-        } catch (Exception ignored) {
-
-        }
+    private static void addRecordToBulkRequest(BulkRequest bulkRequest, ConsumerRecord<String, String> record) {
+        String id = extractId(record.value());
+        IndexRequest indexRequest = new IndexRequest(INDEX_NAME).source(record.value(), XContentType.JSON).id(id);
+        bulkRequest.add(indexRequest);
     }
 
     private static String extractId(String value) {
@@ -110,6 +111,23 @@ public class OpenSearchConsumer {
                 .getAsJsonObject().get("meta")
                 .getAsJsonObject().get("id")
                 .getAsString();
+    }
+
+    private static void insertIntoOpenSearch(RestHighLevelClient openSearchClient, BulkRequest bulkRequest) throws IOException {
+        BulkResponse response = openSearchClient.bulk(bulkRequest, RequestOptions.DEFAULT);
+        log.info("Inserted " + response.getItems().length + " record(s).");
+    }
+
+    private static void commitOffsets(KafkaConsumer<String, String> consumer) {
+        consumer.commitSync();
+        log.info("Offsets have been committed");
+    }
+    private static void waitForNewRecordsToQueue() {
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static RestHighLevelClient createOpenSearchClient() {
